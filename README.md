@@ -30,6 +30,49 @@ Input Images → SIFT Detection → Feature Matching → RANSAC Homography → I
 | NumPy      | Matrix operations, SVD, linear algebra      |
 | Matplotlib | Visualization and figure export             |
 
+---
+
+## File Structure
+
+```
+pixel-stitch/
+├── Code/
+│   ├── panorama_stitch.py              # Core stitching pipeline
+│   └── panorama_stitch_memsafe.py      # Memory-hardened variant
+├── Result/
+│   ├── AppendixA/
+│   │   ├── 01_input_images.png
+│   │   ├── 02_sift_keypoints.png
+│   │   ├── 03_matches_0_1.png
+│   │   ├── 03_matches_2_1.png
+|   |   └── output/
+│   │       ├── 04_naive_stitch.jpg
+│   │       ├── 04_naive_stitch_cropped.jpg
+│   │       ├── 05_blended_panorama.jpg
+│   │       └── 06_comparison.png
+│   ├── AppendixB/
+│   │   └── output/
+│   │       └── ...
+│   ├── AppendixC/                      # ← Required memsafe pipeline
+│   │   └── output/
+│   │       └── ...
+│   ├── AppendixD/                      # ← Required memsafe pipeline
+│   │   └── output/
+│   │       └── ...
+│   ├── AppendixE/                      # ← Required memsafe pipeline
+│   │   └── output/
+│   │       └── ...
+│   ├── AppendixF/
+│   │   └── output/
+│   │       └── ...
+|   ├── Compression.py
+|   └── RESULTS.md
+|
+└── README.md
+
+```
+
+---
 
 ## Usage
 
