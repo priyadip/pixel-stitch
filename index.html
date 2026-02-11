@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Stitch — Panoramic Image Stitching</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=Playfair+Display:wght@500;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── CSS Variables ─────────────────────────────────────── */
+    :root {
+      --peach-50:  #FFF7ED;
+      --peach-100: #FFEDD5;
+      --peach-200: #FED7AA;
+      --peach-300: #FDBA74;
+      --peach-400: #FB923C;
+      --peach-500: #F97316;
+      --peach-600: #EA580C;
+      --amber-50:  #FFFBEB;
+      --amber-100: #FEF3C7;
+      --amber-200: #FDE68A;
+      --amber-400: #FBBF24;
+      --warm-gray: #78716C;
+      --warm-dark: #292524;
+      --warm-bg:   #FAF5F0;
+      --card-bg:   #FFFFFF;
+      --radius:    16px;
+      --radius-sm: 10px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 20px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-lg: 0 10px 40px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ─── Reset & Base ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--warm-bg);
+      color: var(--warm-dark);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Background Decoration ─────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%;
+      right: -15%;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(251,146,60,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -10%;
+      left: -10%;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(254,215,170,0.18) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Layout ────────────────────────────────────────────── */
+    .container {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ─── Header / Hero ─────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 56px 20px 40px;
+      animation: fadeUp 0.8s ease-out;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--peach-100);
+      color: var(--peach-600);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 50px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--peach-500);
+      animation: pulse 2s infinite;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-weight: 800;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.15;
+      color: var(--warm-dark);
+      margin-bottom: 14px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--peach-500), var(--peach-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      color: var(--warm-gray);
+      font-size: 1.05rem;
+      max-width: 580px;
+      margin: 0 auto 8px;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 18px;
+    }
+    .hero-tags .tag {
+      background: var(--card-bg);
+      border: 1px solid var(--peach-200);
+      color: var(--warm-gray);
+      font-size: 0.75rem;
+      padding: 4px 12px;
+      border-radius: 50px;
+      font-weight: 500;
+    }
+
+    /* ─── Card Wrapper ──────────────────────────────────────── */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      padding: 36px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease-out both;
+    }
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.2s; }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.35rem;
+      margin-bottom: 6px;
+    }
+    .card-subtitle {
+      color: var(--warm-gray);
+      font-size: 0.88rem;
+      margin-bottom: 24px;
+    }
+
+    /* ─── Upload Zone ───────────────────────────────────────── */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 640px) {
+      .upload-grid { grid-template-columns: 1fr; }
+    }
+
+    .upload-slot {
+      position: relative;
+      border: 2px dashed var(--peach-200);
+      border-radius: var(--radius-sm);
+      background: var(--peach-50);
+      aspect-ratio: 4 / 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+      overflow: hidden;
+    }
+    .upload-slot:hover {
+      border-color: var(--peach-400);
+      background: var(--peach-100);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
+    .upload-slot.has-file {
+      border-style: solid;
+      border-color: var(--peach-400);
+      background: var(--warm-dark);
+    }
+    .upload-slot.has-file .upload-placeholder { display: none; }
+
+    .upload-placeholder {
+      text-align: center;
+      padding: 12px;
+    }
+    .upload-placeholder .icon {
+      width: 40px; height: 40px;
+      margin: 0 auto 8px;
+      border-radius: 10px;
+      background: var(--peach-200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .upload-placeholder .icon svg {
+      width: 20px; height: 20px;
+      stroke: var(--peach-600);
+    }
+    .upload-placeholder .label {
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: var(--warm-dark);
+    }
+    .upload-placeholder .hint {
+      font-size: 0.75rem;
+      color: var(--warm-gray);
+      margin-top: 2px;
+    }
+
+    .upload-slot input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .preview-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    .upload-slot.has-file .preview-img { display: block; }
+
+    .remove-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      backdrop-filter: blur(4px);
+      transition: var(--transition);
+    }
+    .remove-btn:hover { background: rgba(220,38,38,0.8); }
+    .upload-slot.has-file .remove-btn { display: flex; }
+
+    /* ─── Config Row ────────────────────────────────────────── */
+    .config-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .hf-input {
+      flex: 1;
+      min-width: 240px;
+      padding: 12px 16px;
+      border: 1.5px solid var(--peach-200);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      background: var(--peach-50);
+      color: var(--warm-dark);
+      transition: var(--transition);
+      outline: none;
+    }
+    .hf-input:focus {
+      border-color: var(--peach-400);
+      box-shadow: 0 0 0 3px rgba(251,146,60,0.15);
+    }
+    .hf-input::placeholder { color: #b0a89f; }
+
+    /* ─── Stitch Button ─────────────────────────────────────── */
+    .stitch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--peach-500), var(--peach-400));
+      color: #fff;
+      border: none;
+      padding: 14px 36px;
+      border-radius: 50px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 4px 16px rgba(249,115,22,0.3);
+      margin-top: 24px;
+      width: 100%;
+      justify-content: center;
+    }
+    .stitch-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(249,115,22,0.4);
+    }
+    .stitch-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .stitch-btn svg {
+      width: 20px; height: 20px;
+      transition: transform 0.4s ease;
+    }
+    .stitch-btn:hover:not(:disabled) svg {
+      transform: rotate(90deg);
+    }
+
+    /* ─── Progress ──────────────────────────────────────────── */
+    .progress-wrap {
+      display: none;
+      margin-top: 20px;
+    }
+    .progress-wrap.active { display: block; animation: fadeUp 0.4s ease; }
+
+    .progress-bar-outer {
+      height: 6px;
+      background: var(--peach-100);
+      border-radius: 50px;
+      overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--peach-400), var(--peach-500));
+      border-radius: 50px;
+      transition: width 0.5s ease;
+    }
+    .progress-bar-inner.indeterminate {
+      width: 30%;
+      animation: indeterminate 1.6s ease-in-out infinite;
+    }
+
+    .progress-text {
+      font-size: 0.82rem;
+      color: var(--warm-gray);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .progress-text .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--peach-200);
+      border-top-color: var(--peach-500);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ─── Results ───────────────────────────────────────────── */
+    .results-section { display: none; }
+    .results-section.active { display: block; animation: fadeUp 0.6s ease; }
+
+    .result-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .result-tab {
+      padding: 10px 20px;
+      border: none;
+      background: var(--peach-50);
+      color: var(--warm-gray);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-radius: 50px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--transition);
+    }
+    .result-tab:hover { background: var(--peach-100); color: var(--warm-dark); }
+    .result-tab.active {
+      background: var(--peach-500);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(249,115,22,0.25);
+    }
+
+    .result-panel {
+      display: none;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--warm-dark);
+      min-height: 200px;
+      position: relative;
+    }
+    .result-panel.active { display: block; animation: fadeIn 0.4s ease; }
+    .result-panel img {
+      width: 100%;
+      display: block;
+      cursor: zoom-in;
+    }
+
+    .download-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border: 1.5px solid var(--peach-300);
+      background: var(--card-bg);
+      color: var(--peach-600);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--transition);
+    }
+    .dl-btn:hover {
+      background: var(--peach-50);
+      border-color: var(--peach-500);
+      transform: translateY(-1px);
+    }
+    .dl-btn svg { width: 16px; height: 16px; }
+
+    /* ─── Error ─────────────────────────────────────────────── */
+    .error-msg {
+      display: none;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #B91C1C;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      margin-top: 16px;
+    }
+    .error-msg.active { display: block; animation: shake 0.5s ease; }
+
+    /* ─── Pipeline Info ─────────────────────────────────────── */
+    .pipeline-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .step-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: var(--peach-50);
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--warm-dark);
+    }
+    .step-chip .num {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--peach-200);
+      color: var(--peach-600);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ─── Footer ────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--warm-gray);
+      font-size: 0.82rem;
+    }
+    .footer a {
+      color: var(--peach-500);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footer a:hover { text-decoration: underline; }
+
+    /* ─── Lightbox ──────────────────────────────────────────── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+      backdrop-filter: blur(8px);
+    }
+    .lightbox.active { display: flex; animation: fadeIn 0.3s ease; }
+    .lightbox img {
+      max-width: 95vw;
+      max-height: 92vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 60px rgba(0,0,0,0.5);
+    }
+
+    /* ─── Animations ────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(400%); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Hero ────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-badge"><span class="dot"></span> From-Scratch CV Pipeline</div>
+    <h1>Pixel <span>Stitch</span></h1>
+    <p>
+      Upload overlapping photos and watch them merge into a seamless panorama — 
+      powered by hand-coded homography, RANSAC, and multi-band blending.
+    </p>
+    <div class="hero-tags">
+      <span class="tag">SIFT Features</span>
+      <span class="tag">DLT Homography</span>
+      <span class="tag">RANSAC</span>
+      <span class="tag">Laplacian Blending</span>
+      <span class="tag">Inverse Warping</span>
+    </div>
+  </section>
+
+  <div class="container">
+
+    <!-- ─── Upload Card ─────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-title">Upload Images</div>
+      <div class="card-subtitle">Drag & drop or click — at least 3 overlapping photos, ordered left → right</div>
+
+      <div class="upload-grid">
+        <div class="upload-slot" id="slot-0">
+          <div class="upload-placeholder">
+            <div class="icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16l4-4 3 3 4-4 7 7M3 16V6a2 2 0 012-2h14a2 2 0 012 2v10"/></svg></div>
+            <div class="label">① Left</div>
+            <div class="hint">JPG, PNG</div>
+          </div>
+          <img class="preview-img" />
+          <button class="remove-btn" title="Remove">&times;</button>
+          <input type="file" accept="image/*" />
+        </div>
+
+        <div class="upload-slot" id="slot-1">
+          <div class="upload-placeholder">
+            <div class="icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16l4-4 3 3 4-4 7 7M3 16V6a2 2 0 012-2h14a2 2 0 012 2v10"/></svg></div>
+            <div class="label">② Center</div>
+            <div class="hint">JPG, PNG</div>
+          </div>
+          <img class="preview-img" />
+          <button class="remove-btn" title="Remove">&times;</button>
+          <input type="file" accept="image/*" />
+        </div>
+
+        <div class="upload-slot" id="slot-2">
+          <div class="upload-placeholder">
+            <div class="icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16l4-4 3 3 4-4 7 7M3 16V6a2 2 0 012-2h14a2 2 0 012 2v10"/></svg></div>
+            <div class="label">③ Right</div>
+            <div class="hint">JPG, PNG</div>
+          </div>
+          <img class="preview-img" />
+          <button class="remove-btn" title="Remove">&times;</button>
+          <input type="file" accept="image/*" />
+        </div>
+      </div>
+
+      <!-- HF Space URL Config -->
+      <div class="config-row">
+        <input
+          type="text"
+          class="hf-input"
+          id="hfUrl"
+          placeholder="Hugging Face Space URL  (e.g. https://priyadip-pixel-stitch-demo.hf.space)"
+          value=""
+        />
+      </div>
+
+      <button class="stitch-btn" id="stitchBtn" disabled>
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/><path stroke-linecap="round" stroke-linejoin="round" d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.1 1.1"/></svg>
+        Stitch Panorama
+      </button>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-outer">
+          <div class="progress-bar-inner indeterminate" id="progressBar"></div>
+        </div>
+        <div class="progress-text">
+          <span class="spinner"></span>
+          <span id="progressMsg">Uploading images to server…</span>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <!-- ─── Results Card ────────────────────────────────────── -->
+    <div class="card results-section" id="resultsSection">
+      <div class="card-title">Stitching Results</div>
+      <div class="card-subtitle">Click any image to view fullscreen</div>
+
+      <div class="result-tabs" id="resultTabs">
+        <button class="result-tab active" data-panel="panorama">Panorama</button>
+        <button class="result-tab" data-panel="comparison">Comparison</button>
+        <button class="result-tab" data-panel="naive">Naive Stitch</button>
+        <button class="result-tab" data-panel="keypoints">Keypoints</button>
+        <button class="result-tab" data-panel="matches">Matches</button>
+        <button class="result-tab" data-panel="inputs">Inputs</button>
+      </div>
+
+      <div class="result-panel active" id="panel-panorama"><img id="img-panorama" /></div>
+      <div class="result-panel" id="panel-comparison"><img id="img-comparison" /></div>
+      <div class="result-panel" id="panel-naive"><img id="img-naive" /></div>
+      <div class="result-panel" id="panel-keypoints"><img id="img-keypoints" /></div>
+      <div class="result-panel" id="panel-matches"><img id="img-matches" /></div>
+      <div class="result-panel" id="panel-inputs"><img id="img-inputs" /></div>
+
+      <div class="download-row">
+        <a class="dl-btn" id="dlPanorama" download="panorama.png">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          Download Panorama
+        </a>
+        <a class="dl-btn" id="dlComparison" download="comparison.png">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          Download Comparison
+        </a>
+      </div>
+    </div>
+
+    <!-- ─── Pipeline Info ───────────────────────────────────── -->
+    <div class="card">
+      <div class="card-title">How It Works</div>
+      <div class="card-subtitle">Every step implemented from scratch — no cv2.Stitcher here</div>
+      <div class="pipeline-steps">
+        <div class="step-chip"><span class="num">1</span>SIFT Detect</div>
+        <div class="step-chip"><span class="num">2</span>BF Match</div>
+        <div class="step-chip"><span class="num">3</span>DLT Homography</div>
+        <div class="step-chip"><span class="num">4</span>RANSAC Filter</div>
+        <div class="step-chip"><span class="num">5</span>Inverse Warp</div>
+        <div class="step-chip"><span class="num">6</span>Exposure Fix</div>
+        <div class="step-chip"><span class="num">7</span>Laplacian Blend</div>
+        <div class="step-chip"><span class="num">8</span>Smart Crop</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── Footer ──────────────────────────────────────────── -->
+  <footer class="footer">
+    Built by <a href="https://github.com/priyadip" target="_blank">priyadip</a> &nbsp;·&nbsp;
+    <a href="https://github.com/priyadip/pixel-stitch" target="_blank">GitHub Repo</a> &nbsp;·&nbsp;
+    Powered by <a href="https://huggingface.co/spaces/priyadip/pixel-stitch-demo" target="_blank">Hugging Face Spaces</a>
+  </footer>
+
+  <!-- ─── Lightbox ────────────────────────────────────────── -->
+  <div class="lightbox" id="lightbox">
+    <img id="lightboxImg" />
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       JAVASCRIPT
+       ═══════════════════════════════════════════════════════════ -->
+  <script>
+    (function () {
+      "use strict";
+
+      // ─── DOM refs ──────────────────────────────────────────
+      const slots     = [0, 1, 2].map(i => document.getElementById(`slot-${i}`));
+      const hfUrlEl   = document.getElementById("hfUrl");
+      const stitchBtn = document.getElementById("stitchBtn");
+      const progressWrap = document.getElementById("progressWrap");
+      const progressBar  = document.getElementById("progressBar");
+      const progressMsg  = document.getElementById("progressMsg");
+      const errorMsg     = document.getElementById("errorMsg");
+      const resultsSection = document.getElementById("resultsSection");
+      const lightbox    = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById("lightboxImg");
+
+      // ─── State ─────────────────────────────────────────────
+      const files = [null, null, null];
+
+      // ─── Upload Slot Logic ─────────────────────────────────
+      slots.forEach((slot, idx) => {
+        const input   = slot.querySelector('input[type="file"]');
+        const preview = slot.querySelector('.preview-img');
+        const removeBtn = slot.querySelector('.remove-btn');
+
+        input.addEventListener("change", (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          files[idx] = file;
+          const url = URL.createObjectURL(file);
+          preview.src = url;
+          slot.classList.add("has-file");
+          updateBtn();
+        });
+
+        removeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          files[idx] = null;
+          input.value = "";
+          preview.src = "";
+          slot.classList.remove("has-file");
+          updateBtn();
+        });
+      });
+
+      function updateBtn() {
+        const allFilled = files.every(f => f !== null);
+        stitchBtn.disabled = !allFilled;
+      }
+
+      // ─── Tabs ──────────────────────────────────────────────
+      document.getElementById("resultTabs").addEventListener("click", (e) => {
+        const tab = e.target.closest(".result-tab");
+        if (!tab) return;
+        document.querySelectorAll(".result-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".result-panel").forEach(p => p.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`panel-${tab.dataset.panel}`).classList.add("active");
+      });
+
+      // ─── Lightbox ──────────────────────────────────────────
+      document.querySelectorAll(".result-panel img").forEach(img => {
+        img.addEventListener("click", () => {
+          if (!img.src) return;
+          lightboxImg.src = img.src;
+          lightbox.classList.add("active");
+        });
+      });
+      lightbox.addEventListener("click", () => lightbox.classList.remove("active"));
+
+      // ─── Utility: show/hide ────────────────────────────────
+      function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.classList.add("active");
+      }
+      function hideError() { errorMsg.classList.remove("active"); }
+      function showProgress(msg) {
+        progressWrap.classList.add("active");
+        progressMsg.textContent = msg;
+      }
+      function hideProgress() { progressWrap.classList.remove("active"); }
+
+      // ─── Gradio REST API helpers ───────────────────────────
+      //
+      // Gradio 4.x exposes these endpoints:
+      //   POST /upload          — upload files, returns [{ path }]
+      //   POST /api/predict     — call the function
+      //   GET  /file=<path>     — download result files
+      //
+      // For Gradio Blocks with .click(), the API name is auto-generated.
+      // We use /api/predict with fn_index=0 (our only click handler).
+
+      async function uploadFileToGradio(baseUrl, file) {
+        const fd = new FormData();
+        fd.append("files", file);
+        const resp = await fetch(`${baseUrl}/upload`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+        const data = await resp.json();
+        // Gradio returns an array of paths
+        return data[0];   // e.g. "/tmp/gradio/abc123/file.jpg"
+      }
+
+      function gradioFilePath(obj) {
+        // Gradio returns either a string path or { path, url, ... }
+        if (typeof obj === "string") return obj;
+        if (obj && obj.path) return obj.path;
+        if (obj && obj.url) return obj.url;
+        return null;
+      }
+
+      function resolveFileUrl(baseUrl, fileObj) {
+        if (!fileObj) return null;
+        // If it's a full URL already
+        if (typeof fileObj === "string" && fileObj.startsWith("http")) return fileObj;
+        // If it's an object with url
+        if (fileObj.url) {
+          if (fileObj.url.startsWith("http")) return fileObj.url;
+          return `${baseUrl}${fileObj.url}`;
+        }
+        // Fall back to /file=path
+        const path = gradioFilePath(fileObj);
+        if (!path) return null;
+        return `${baseUrl}/file=${path}`;
+      }
+
+      // ─── Main Stitch Handler ───────────────────────────────
+      stitchBtn.addEventListener("click", async () => {
+        hideError();
+        resultsSection.classList.remove("active");
+
+        let baseUrl = hfUrlEl.value.trim().replace(/\/+$/, "");
+        if (!baseUrl) {
+          showError("Please enter your Hugging Face Space URL above.");
+          return;
+        }
+
+        // Validate URL format
+        if (!baseUrl.startsWith("http")) baseUrl = "https://" + baseUrl;
+
+        stitchBtn.disabled = true;
+        showProgress("Uploading images to server…");
+
+        try {
+          // 1) Upload all 3 files
+          const uploaded = [];
+          for (let i = 0; i < 3; i++) {
+            showProgress(`Uploading image ${i + 1} of 3…`);
+            const path = await uploadFileToGradio(baseUrl, files[i]);
+            uploaded.push(path);
+          }
+
+          // 2) Call the predict endpoint
+          showProgress("Stitching in progress — this may take 30–90 seconds on CPU…");
+
+          // Build the data array matching our Gradio inputs:
+          // [left_img, center_img, right_img, extra1, extra2]
+          const inputData = uploaded.map(p => ({
+            path: typeof p === "string" ? p : p.path,
+            meta: { _type: "gradio.FileData" }
+          }));
+
+          // Pad with null for extra1, extra2
+          while (inputData.length < 5) inputData.push(null);
+
+          const predictResp = await fetch(`${baseUrl}/api/predict`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fn_index: 0,
+              data: inputData,
+            }),
+          });
+
+          if (!predictResp.ok) {
+            // Try the /call/ endpoint for newer Gradio
+            const callResp = await fetch(`${baseUrl}/call/process_images`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                data: inputData,
+              }),
+            });
+
+            if (!callResp.ok) throw new Error(`API call failed: ${callResp.status}`);
+
+            const callData = await callResp.json();
+            const eventId = callData.event_id;
+
+            // Poll for result
+            showProgress("Processing on server — waiting for result…");
+            let resultData = null;
+            const eventResp = await fetch(`${baseUrl}/call/process_images/${eventId}`);
+            const text = await eventResp.text();
+
+            // Parse SSE format
+            const lines = text.split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  resultData = JSON.parse(line.substring(6));
+                } catch(e) { /* skip non-json lines */ }
+              }
+            }
+
+            if (!resultData) throw new Error("No result received from server");
+            displayResults(baseUrl, resultData);
+          } else {
+            const result = await predictResp.json();
+            displayResults(baseUrl, result.data);
+          }
+
+          hideProgress();
+          resultsSection.classList.add("active");
+          resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        } catch (err) {
+          hideProgress();
+          showError(`Error: ${err.message}. Make sure your HF Space is running and the URL is correct.`);
+          console.error(err);
+        } finally {
+          updateBtn();
+        }
+      });
+
+      function displayResults(baseUrl, data) {
+        // data = [panorama, naive, comparison, keypoints, matches, inputs]
+        const keys = ["panorama", "naive", "comparison", "keypoints", "matches", "inputs"];
+
+        keys.forEach((key, i) => {
+          const img = document.getElementById(`img-${key}`);
+          const fileObj = data[i];
+          const url = resolveFileUrl(baseUrl, fileObj);
+          if (url) {
+            img.src = url;
+          } else {
+            img.src = "";
+          }
+        });
+
+        // Download links
+        const panoUrl = resolveFileUrl(baseUrl, data[0]);
+        const compUrl = resolveFileUrl(baseUrl, data[2]);
+        if (panoUrl) document.getElementById("dlPanorama").href = panoUrl;
+        if (compUrl) document.getElementById("dlComparison").href = compUrl;
+      }
+
+    })();
+  </script>
+</body>
+</html>
