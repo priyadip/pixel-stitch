@@ -368,6 +368,11 @@
     stitchBtn.addEventListener("click", async () => {
       hideError();
       resultsSection.classList.remove("active");
+      if (!files.every(f => f instanceof File && f.size > 0)) {
+        showError("Please upload 3 valid images before stitching.");
+        return;
+      }
+
 
       let spaceName = hfUrlEl.value.trim().replace(/\/+$/, "");
       if (!spaceName) {
